@@ -1,0 +1,29 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/pageMenu" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:visibility="gone">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+        <TextView style="@style/Eyebrow" android:text="@string/menu_label" />
+        <TextView style="@style/PageTitle" android:text="@string/menu_title" />
+        <TextView style="@style/BodyText" android:layout_marginTop="8dp" android:text="@string/menu_subtitle" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"
+            android:background="@drawable/bg_soft" android:orientation="vertical" android:padding="24dp">
+            <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@drawable/ic_shield" app:tint="@color/accent" android:importantForAccessibility="no" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp"
+                android:text="@string/privacy_title" android:textSize="21sp" android:fontFamily="sans-serif-medium" android:textColor="@color/ink" />
+            <TextView style="@style/BodyText" android:layout_marginTop="8dp" android:text="@string/privacy_body" />
+        </LinearLayout>
+        <TextView style="@style/Eyebrow" android:layout_marginTop="28dp" android:layout_marginBottom="8dp" android:text="@string/access_label" />
+        <TextView android:id="@+id/accessStatus" style="@style/BodyText" android:layout_marginBottom="12dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/accessButton" style="@style/MenuAction"
+            android:text="@string/manage_access" app:icon="@drawable/ic_gallery" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/refreshButton" style="@style/MenuAction"
+            android:layout_marginTop="8dp" android:text="@string/refresh_gallery" app:icon="@drawable/ic_refresh" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/reviewHistoryButton" style="@style/MenuAction"
+            android:layout_marginTop="8dp" android:text="@string/review_history" app:icon="@drawable/ic_undo" />
+        <TextView style="@style/Eyebrow" android:layout_marginTop="28dp" android:layout_marginBottom="8dp" android:text="@string/help_label" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/howButton" style="@style/MenuAction"
+            android:text="@string/how_title" app:icon="@drawable/ic_info" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/trashInfoButton" style="@style/MenuAction"
+            android:layout_marginTop="8dp" android:text="@string/trash_info_title" app:icon="@drawable/ic_trash" />
+        <TextView style="@style/BodyText" android:layout_marginTop="28dp" android:gravity="center" android:textSize="12sp" android:text="@string/menu_footer" />
+    </LinearLayout>
+</ScrollView>

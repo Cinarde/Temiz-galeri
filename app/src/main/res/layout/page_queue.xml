@@ -1,0 +1,25 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/pageQueue" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:paddingHorizontal="24dp" android:paddingTop="24dp" android:visibility="gone">
+    <TextView style="@style/Eyebrow" android:text="@string/queue_label" />
+    <TextView style="@style/PageTitle" android:text="@string/queue_title" />
+    <TextView android:id="@+id/queueSummary" style="@style/BodyText" android:layout_marginTop="8dp" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="20dp">
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/queueGrid" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:clipToPadding="false" android:paddingBottom="8dp" />
+        <LinearLayout android:id="@+id/queueEmpty" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:orientation="vertical" android:padding="20dp">
+            <ImageView android:layout_width="64dp" android:layout_height="64dp" android:src="@drawable/ic_check" app:tint="@color/accent" android:importantForAccessibility="no" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="20dp"
+                android:text="@string/queue_empty_title" android:textSize="22sp" android:fontFamily="sans-serif-medium" android:textColor="@color/ink" />
+            <TextView style="@style/BodyText" android:gravity="center" android:layout_marginTop="8dp" android:text="@string/queue_empty_body" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/backToSort" style="@style/PrimaryAction"
+                android:layout_marginTop="24dp" android:text="@string/back_to_sort" app:icon="@drawable/ic_arrow" app:iconGravity="textEnd" />
+        </LinearLayout>
+    </FrameLayout>
+    <LinearLayout android:id="@+id/queueFooter" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingVertical="12dp">
+        <TextView style="@style/BodyText" android:text="@string/queue_consent_note" android:textSize="12sp" android:gravity="center" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/cleanButton" style="@style/PrimaryAction"
+            android:layout_marginTop="8dp" android:text="@string/clean" app:icon="@drawable/ic_trash" app:iconGravity="textStart" />
+    </LinearLayout>
+</LinearLayout>
