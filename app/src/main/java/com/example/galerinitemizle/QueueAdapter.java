@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
@@ -14,15 +15,15 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.button.MaterialButton;
 
 /** RecyclerView only decodes visible thumbnails, regardless of queue length. */
-public final class QueueAdapter extends ListAdapter<String, QueueAdapter.Holder> {
+public final class QueueAdapter extends ListAdapter<GalleryMedia, QueueAdapter.Holder> {
     interface RestoreListener { void restore(String uri); }
     private final RestoreListener listener;
     private boolean actionsEnabled = true;
 
     QueueAdapter(RestoreListener listener) {
-        super(new DiffUtil.ItemCallback<String>() {
-            @Override public boolean areItemsTheSame(@NonNull String oldItem, @NonNull String newItem) { return oldItem.equals(newItem); }
-            @Override public boolean areContentsTheSame(@NonNull String oldItem, @NonNull String newItem) { return oldItem.equals(newItem); }
+        super(new DiffUtil.ItemCallback<GalleryMedia>() {
+            @Override public boolean areItemsTheSame(@NonNull GalleryMedia oldItem, @NonNull GalleryMedia newItem) { return oldItem.uri.equals(newItem.uri); }
+            @Override public boolean areContentsTheSame(@NonNull GalleryMedia oldItem, @NonNull GalleryMedia newItem) { return oldItem.equals(newItem); }
         });
         this.listener = listener;
     }
@@ -38,7 +39,9 @@ public final class QueueAdapter extends ListAdapter<String, QueueAdapter.Holder>
     }
 
     @Override public void onBindViewHolder(@NonNull Holder holder, int position) {
-        String uri = getItem(position);
+        GalleryMedia item = getItem(position);
+        String uri = item.uri;
+        holder.label.setText(SwipeDeckView.dateLabel(holder.itemView.getContext(), item));
         Glide.with(holder.image).asBitmap().load(Uri.parse(uri)).override(480, 480)
                 .centerCrop().diskCacheStrategy(DiskCacheStrategy.NONE)
                 .placeholder(R.drawable.ic_gallery).error(R.drawable.ic_gallery).into(holder.image);
@@ -46,7 +49,7 @@ public final class QueueAdapter extends ListAdapter<String, QueueAdapter.Holder>
         holder.restore.setContentDescription(holder.itemView.getContext().getString(R.string.restore_description, position + 1));
         holder.restore.setOnClickListener(view -> {
             int current = holder.getBindingAdapterPosition();
-            if (actionsEnabled && current != RecyclerView.NO_POSITION) listener.restore(getItem(current));
+            if (actionsEnabled && current != RecyclerView.NO_POSITION) listener.restore(getItem(current).uri);
         });
     }
 
@@ -55,12 +58,14 @@ public final class QueueAdapter extends ListAdapter<String, QueueAdapter.Holder>
         super.onViewRecycled(holder);
     }
 
-    static final class Holder extends RecyclerView.ViewHolder {
+    public static final class Holder extends RecyclerView.ViewHolder {
         final ImageView image;
         final MaterialButton restore;
+        final TextView label;
         Holder(View view) {
             super(view);
             image = view.findViewById(R.id.queueImage);
+            label = view.findViewById(R.id.queueMediaLabel);
             restore = view.findViewById(R.id.restoreButton);
         }
     }

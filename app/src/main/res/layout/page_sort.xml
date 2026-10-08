@@ -13,8 +13,30 @@
         </LinearLayout>
         <TextView style="@style/PageTitle" android:text="@string/sort_title" />
         <TextView style="@style/BodyText" android:layout_marginTop="4dp" android:text="@string/sort_subtitle" />
-        <TextView android:id="@+id/status" style="@style/BodyText" android:layout_marginTop="16dp"
-            android:textSize="12sp" android:accessibilityLiveRegion="polite" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:orientation="horizontal" android:gravity="center_vertical"
+            android:baselineAligned="false">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/status" style="@style/BodyText"
+                    android:textSize="12sp" android:accessibilityLiveRegion="polite" />
+                <TextView android:id="@+id/currentMediaDate" style="@style/BodyText" android:layout_marginTop="4dp"
+                    android:textSize="12sp" android:visibility="gone" android:accessibilityLiveRegion="polite" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/currentMediaSizePanel" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_marginStart="12dp"
+                android:orientation="vertical" android:gravity="end" android:visibility="gone">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/file_size" android:textColor="@color/muted" android:textSize="12sp" />
+                <TextView android:id="@+id/currentMediaSize" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:textColor="@color/accent" android:textSize="20sp"
+                    android:fontFamily="sans-serif-medium" android:accessibilityLiveRegion="polite" />
+            </LinearLayout>
+        </LinearLayout>
+        <com.google.android.material.button.MaterialButton android:id="@+id/expandAccessButton"
+            style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:minHeight="48dp" android:visibility="gone"
+            android:text="@string/expand_access" app:icon="@drawable/ic_gallery" />
         <FrameLayout android:id="@+id/photoArea" android:layout_width="match_parent" android:layout_height="300dp" android:layout_marginTop="12dp">
             <com.example.galerinitemizle.SwipeDeckView android:id="@+id/deck" android:layout_width="match_parent" android:layout_height="match_parent" />
             <LinearLayout android:id="@+id/emptyPanel" android:layout_width="match_parent" android:layout_height="match_parent"
@@ -39,7 +61,5 @@
             <com.google.android.material.button.MaterialButton android:id="@+id/keepButton" style="@style/PrimaryAction"
                 android:layout_width="0dp" android:layout_weight="1" android:text="@string/keep_short" app:icon="@drawable/ic_check" app:iconGravity="textStart" />
         </LinearLayout>
-        <com.google.android.material.button.MaterialButton android:id="@+id/reviewButton" style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/review_queue" app:icon="@drawable/ic_arrow" app:iconGravity="textEnd" />
     </LinearLayout>
 </ScrollView>

@@ -1,0 +1,28 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/playbackControls" android:layout_width="match_parent"
+    android:layout_height="wrap_content" android:layout_gravity="bottom"
+    android:orientation="vertical" android:paddingHorizontal="12dp" android:paddingBottom="8dp"
+    android:background="#CC14221B">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center" android:orientation="horizontal">
+            <ImageButton android:id="@+id/exo_rew" android:layout_width="48dp" android:layout_height="48dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_video_rewind" android:contentDescription="@string/rewind_video" />
+            <ImageButton android:id="@+id/exo_play_pause" android:layout_width="56dp" android:layout_height="56dp"
+                android:layout_marginHorizontal="20dp" android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_video_play" android:contentDescription="@string/play_video" />
+            <ImageButton android:id="@+id/exo_ffwd" android:layout_width="48dp" android:layout_height="48dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_video_forward" android:contentDescription="@string/forward_video" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <TextView android:id="@+id/exo_position" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#FFFFFF" android:textSize="12sp" android:importantForAccessibility="no" />
+            <androidx.media3.ui.DefaultTimeBar android:id="@+id/exo_progress" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="48dp" android:contentDescription="@string/video_progress"
+                app:played_color="#B1CEA2" app:scrubber_color="#FFFFFF" app:buffered_color="#99FFFFFF" app:unplayed_color="#55FFFFFF" />
+            <TextView android:id="@+id/exo_duration" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#FFFFFF" android:textSize="12sp" android:importantForAccessibility="no" />
+        </LinearLayout>
+</LinearLayout>

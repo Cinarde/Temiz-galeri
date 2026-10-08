@@ -11,12 +11,15 @@ import android.os.Looper;
 import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Keep;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.MutableLiveData;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -44,7 +47,22 @@ public class GalleryViewModel extends AndroidViewModel {
     // Preserve unconfirmed left swipes across restarts, including temporarily inaccessible photos.
     private final LinkedHashSet<String> queuedUris = new LinkedHashSet<>();
     private final LinkedHashSet<String> swipeOrder = new LinkedHashSet<>();
+    private final Map<String, GalleryMedia> media = new HashMap<>();
 
+    GalleryMedia mediaFor(String uri) {
+        if (uri == null) return null;
+        GalleryMedia item = media.get(uri);
+        return item != null ? item : new GalleryMedia(uri, uri.contains("/video/media/"), 0, 0);
+    }
+
+    List<GalleryMedia> queuedMedia() {
+        List<GalleryMedia> items = new ArrayList<>();
+        for (String uri : session.trashBatch(Integer.MAX_VALUE)) items.add(mediaFor(uri));
+        return items;
+    }
+
+    // AndroidViewModelFactory calls this constructor through reflection.
+    @Keep
     public GalleryViewModel(@NonNull Application application) {
         this(application, application.getSharedPreferences(HISTORY_PREFERENCES, Context.MODE_PRIVATE));
     }
@@ -117,8 +135,10 @@ public class GalleryViewModel extends AndroidViewModel {
 
     void confirmTrashed(List<String> confirmed) {
         session.confirmTrashed(confirmed);
-        queuedUris.removeAll(confirmed);
-        swipeOrder.removeAll(confirmed);
+        for (String uri : confirmed) {
+            queuedUris.remove(uri);
+            swipeOrder.remove(uri);
+        }
         // Keep processed history even if a photo is later restored by another gallery.
         saveHistory();
     }
@@ -153,7 +173,10 @@ public class GalleryViewModel extends AndroidViewModel {
         refresh(hasAccess);
     }
 
-    void changed() { changes.setValue(changes.getValue() + 1); }
+    void changed() {
+        Integer previous = changes.getValue();
+        changes.setValue(previous == null ? 1 : previous + 1);
+    }
 
     void refresh(boolean hasAccess) {
         if (requestingTrash) return; // Freeze the exact batch until the OS returns a result.
@@ -170,9 +193,11 @@ public class GalleryViewModel extends AndroidViewModel {
         Set<String> processedSnapshot = new HashSet<>(processedUris);
         io.execute(() -> {
             try {
-                PhotoQuery photos = queryPhotos(processedSnapshot);
+                MediaQuery photos = queryMedia(processedSnapshot);
                 main.post(() -> {
                     if (request != generation) return;
+                    media.clear();
+                    media.putAll(photos.metadata);
                     session.restoreQueued(queuedUris);
                     session.restoreSwipeOrder(swipeOrder);
                     session.reconcile(photos.accessible, photos.candidates);
@@ -190,32 +215,50 @@ public class GalleryViewModel extends AndroidViewModel {
         });
     }
 
-    private PhotoQuery queryPhotos(Set<String> processed) {
-        PhotoQuery result = new PhotoQuery();
-        Uri collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL);
-        String[] projection = {MediaStore.Images.Media._ID};
+    private MediaQuery queryMedia(Set<String> processed) {
+        MediaQuery result = new MediaQuery();
+        queryCollection(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), false, processed, result);
+        queryCollection(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), true, processed, result);
+        // Shuffle after merging: photos and videos share the same random deck.
+        Collections.shuffle(result.candidates);
+        return result;
+    }
+
+    private void queryCollection(Uri collection, boolean video, Set<String> processed, MediaQuery result) {
+        String[] projection = {MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATE_TAKEN,
+                MediaStore.MediaColumns.DATE_ADDED, MediaStore.MediaColumns.SIZE};
         String selection = MediaStore.Images.Media.IS_TRASHED + " = 0 AND "
                 + MediaStore.Images.Media.IS_PENDING + " = 0";
-        String order = MediaStore.Images.Media.DATE_ADDED + " DESC, "
-                + MediaStore.Images.Media._ID + " DESC";
         try (Cursor cursor = getApplication().getContentResolver().query(
-                collection, projection, selection, null, order)) {
+                collection, projection, selection, null, null)) {
             if (cursor == null) throw new IllegalStateException("MediaStore unavailable");
             int id = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+            int taken = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN);
+            int added = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED);
+            int size = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE);
             while (cursor.moveToNext()) {
                 String uri = ContentUris.withAppendedId(collection, cursor.getLong(id)).toString();
                 // Retain accessibility information for queued photos, but never add a
                 // previously swiped photo to the new deck. HashSet lookup is O(1) on average.
                 result.accessible.add(uri);
+                result.metadata.put(uri, new GalleryMedia(uri, video, cursor.getLong(taken), cursor.getLong(added),
+                        cursor.isNull(size) ? -1 : cursor.getLong(size)));
                 if (!processed.contains(uri)) result.candidates.add(uri);
             }
+        } catch (SecurityException denied) {
+            // Android can grant just images or just videos. Do not block the other collection.
+            String permission = android.os.Build.VERSION.SDK_INT >= 33
+                    ? (video ? android.Manifest.permission.READ_MEDIA_VIDEO : android.Manifest.permission.READ_MEDIA_IMAGES)
+                    : android.Manifest.permission.READ_EXTERNAL_STORAGE;
+            if (androidx.core.content.ContextCompat.checkSelfPermission(getApplication(), permission)
+                    == android.content.pm.PackageManager.PERMISSION_GRANTED) throw denied;
         }
-        return result;
     }
 
-    private static final class PhotoQuery {
+    private static final class MediaQuery {
         final List<String> accessible = new ArrayList<>();
         final List<String> candidates = new ArrayList<>();
+        final Map<String, GalleryMedia> metadata = new HashMap<>();
     }
 
     @Override protected void onCleared() {

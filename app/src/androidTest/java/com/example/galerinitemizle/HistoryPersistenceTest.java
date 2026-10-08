@@ -33,7 +33,8 @@ public class HistoryPersistenceTest {
         List<Uri> fixtures = new ArrayList<>();
         List<GalleryViewModel> models = new ArrayList<>();
         try {
-            for (int i = 0; i < 3; i++) fixtures.add(createPhoto(app));
+            fixtures.add(MediaTestFixtures.video(app));
+            for (int i = 0; i < 2; i++) fixtures.add(createPhoto(app));
             String kept = normalized(fixtures.get(0));
             String queued = normalized(fixtures.get(1));
             String unseen = normalized(fixtures.get(2));
@@ -124,7 +125,10 @@ public class HistoryPersistenceTest {
     }
 
     private static String normalized(Uri uri) {
-        return ContentUris.withAppendedId(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), ContentUris.parseId(uri)).toString();
+        Uri collection = uri.toString().contains("/video/")
+                ? MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                : MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL);
+        return ContentUris.withAppendedId(collection, ContentUris.parseId(uri)).toString();
     }
 
     private static Uri createPhoto(Context context) throws Exception {
@@ -136,8 +140,10 @@ public class HistoryPersistenceTest {
         Uri uri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
         assertNotNull(uri);
         Bitmap bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888);
-        try (OutputStream stream = context.getContentResolver().openOutputStream(uri)) { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream); }
-        bitmap.recycle();
+        try (OutputStream stream = context.getContentResolver().openOutputStream(uri)) {
+            assertNotNull(stream);
+            assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream));
+        } finally { bitmap.recycle(); }
         values.clear();
         values.put(MediaStore.Images.Media.IS_PENDING, 0);
         context.getContentResolver().update(uri, values, null, null);

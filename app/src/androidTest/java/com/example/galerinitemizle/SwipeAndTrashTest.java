@@ -40,6 +40,8 @@ public class SwipeAndTrashTest {
         context.getSharedPreferences(GalleryViewModel.HISTORY_PREFERENCES, Context.MODE_PRIVATE).edit().clear().commit();
         String permission = Build.VERSION.SDK_INT >= 33 ? Manifest.permission.READ_MEDIA_IMAGES : Manifest.permission.READ_EXTERNAL_STORAGE;
         InstrumentationRegistry.getInstrumentation().getUiAutomation().grantRuntimePermission(context.getPackageName(), permission);
+        if (Build.VERSION.SDK_INT >= 33) InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .grantRuntimePermission(context.getPackageName(), Manifest.permission.READ_MEDIA_VIDEO);
         List<Uri> fixtures = new ArrayList<>();
         List<String> ids = new ArrayList<>();
         try {
@@ -102,7 +104,7 @@ public class SwipeAndTrashTest {
         }
     }
 
-    private static UiObject2 consentButton(boolean approve) {
+    static UiObject2 consentButton(boolean approve) {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         UiObject2 button = device.wait(Until.findObject(By.res("android", approve ? "button1" : "button2")), 5000);
         assertNotNull("Expected Android trash consent dialog", button);
@@ -118,7 +120,7 @@ public class SwipeAndTrashTest {
         });
     }
 
-    private static void ready(ActivityScenario<MainActivity> scenario) {
+    static void ready(ActivityScenario<MainActivity> scenario) {
         AtomicBoolean ready = new AtomicBoolean();
         long deadline = SystemClock.uptimeMillis() + 10000;
         do {
@@ -133,7 +135,7 @@ public class SwipeAndTrashTest {
         fail("UI did not become ready");
     }
 
-    private static int trashed(Context context, Uri uri) {
+    static int trashed(Context context, Uri uri) {
         Bundle args = new Bundle();
         args.putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE);
         try (Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.Images.Media.IS_TRASHED}, args, null)) {
@@ -143,7 +145,7 @@ public class SwipeAndTrashTest {
         }
     }
 
-    private static Uri createPhoto(Context context) throws Exception {
+    static Uri createPhoto(Context context) throws Exception {
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.DISPLAY_NAME, "trash-regression-" + System.nanoTime() + ".jpg");
         values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
@@ -153,8 +155,10 @@ public class SwipeAndTrashTest {
         assertNotNull(uri);
         Bitmap bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888);
         bitmap.eraseColor(0xff315e47);
-        try (OutputStream stream = context.getContentResolver().openOutputStream(uri)) { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream); }
-        bitmap.recycle();
+        try (OutputStream stream = context.getContentResolver().openOutputStream(uri)) {
+            assertNotNull(stream);
+            assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream));
+        } finally { bitmap.recycle(); }
         values.clear();
         values.put(MediaStore.Images.Media.IS_PENDING, 0);
         context.getContentResolver().update(uri, values, null, null);

@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView status, empty;
     private View progress;
     private MaterialButton access, discard, keep, undo, clean;
-    private MaterialButton start, review, refreshButton;
+    private MaterialButton start, refreshButton;
     private BottomNavigationView navigation;
     private QueueAdapter queueAdapter;
     private View pageSort, pageQueue, pageMenu;
@@ -98,7 +98,6 @@ public class MainActivity extends AppCompatActivity {
         undo = findViewById(R.id.undoButton);
         clean = findViewById(R.id.cleanButton);
         start = findViewById(R.id.startButton);
-        review = findViewById(R.id.reviewButton);
         refreshButton = findViewById(R.id.refreshButton);
         pageSort = findViewById(R.id.pageSort);
         pageQueue = findViewById(R.id.pageQueue);
@@ -122,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
         findViewById(R.id.backToSort).setOnClickListener(view -> navigation.setSelectedItemId(R.id.nav_sort));
-        review.setOnClickListener(view -> navigation.setSelectedItemId(R.id.nav_queue));
         refreshButton.setOnClickListener(view -> refresh());
         findViewById(R.id.reviewHistoryButton).setOnClickListener(view ->
                 new MaterialAlertDialogBuilder(this).setTitle(R.string.review_history)
@@ -148,14 +146,13 @@ public class MainActivity extends AppCompatActivity {
         });
         discard.setOnClickListener(view -> deck.swipe(false));
         keep.setOnClickListener(view -> deck.swipe(true));
-        undo.setOnClickListener(view -> {
-            model.undoLastSwipe();
-        });
+        undo.setOnClickListener(view -> model.undoLastSwipe());
         undo.setTooltipText(getString(R.string.undo));
         access.setOnClickListener(view -> {
             if (model.loadFailed && hasAccess()) refresh();
             else requestAccess();
         });
+        findViewById(R.id.expandAccessButton).setOnClickListener(view -> requestAccess());
         clean.setOnClickListener(view -> {
             if (model.session.trashCount() > TRASH_BATCH_SIZE) {
                 new MaterialAlertDialogBuilder(this).setTitle(R.string.batch_title)
@@ -208,8 +205,22 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        deck.setHostActive(true);
         // Android 14 selected-photo access may change while the app is in the background.
         refresh();
+        // Existing photo-only installations have never requested the new video permission.
+        // Ask once on upgrade, without resetting the user's saved decisions or selections.
+        if (!model.requestingTrash && Build.VERSION.SDK_INT >= 33
+                && granted(Manifest.permission.READ_MEDIA_IMAGES)
+                && !granted(Manifest.permission.READ_MEDIA_VIDEO)
+                && !getPreferences(MODE_PRIVATE).getBoolean("asked_video_permission", false)) {
+            requestAccess();
+        }
+    }
+
+    @Override protected void onPause() {
+        deck.setHostActive(false);
+        super.onPause();
     }
 
     @Override protected void onStop() {
@@ -229,28 +240,41 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean fullAccess() {
         return Build.VERSION.SDK_INT >= 33
-                ? granted(Manifest.permission.READ_MEDIA_IMAGES)
+                ? granted(Manifest.permission.READ_MEDIA_IMAGES) && granted(Manifest.permission.READ_MEDIA_VIDEO)
                 : granted(Manifest.permission.READ_EXTERNAL_STORAGE);
     }
 
     private boolean partialAccess() {
-        return Build.VERSION.SDK_INT >= 34 && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED);
+        return (Build.VERSION.SDK_INT >= 33 && !fullAccess()
+                && (granted(Manifest.permission.READ_MEDIA_IMAGES) || granted(Manifest.permission.READ_MEDIA_VIDEO)))
+                || (Build.VERSION.SDK_INT >= 34 && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED));
     }
 
     private boolean hasAccess() { return fullAccess() || partialAccess(); }
 
     private void requestAccess() {
         String primary = Build.VERSION.SDK_INT >= 33
-                ? Manifest.permission.READ_MEDIA_IMAGES : Manifest.permission.READ_EXTERNAL_STORAGE;
-        boolean asked = getPreferences(MODE_PRIVATE).getBoolean("asked_permission", false);
-        if (fullAccess() || (asked && !hasAccess() && !shouldShowRequestPermissionRationale(primary))) {
+                ? (granted(Manifest.permission.READ_MEDIA_IMAGES) ? Manifest.permission.READ_MEDIA_VIDEO : Manifest.permission.READ_MEDIA_IMAGES)
+                : Manifest.permission.READ_EXTERNAL_STORAGE;
+        String askedKey = Manifest.permission.READ_MEDIA_VIDEO.equals(primary)
+                ? "asked_video_permission" : "asked_permission";
+        boolean asked = getPreferences(MODE_PRIVATE).getBoolean(askedKey, false);
+        boolean canReselect = Build.VERSION.SDK_INT >= 34
+                && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED);
+        if (fullAccess() || (asked && !canReselect && !shouldShowRequestPermissionRationale(primary))) {
             startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
             return;
         }
         getPreferences(MODE_PRIVATE).edit().putBoolean("asked_permission", true).apply();
+        if (Build.VERSION.SDK_INT >= 33) {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("asked_video_permission", true).apply();
+        }
         if (Build.VERSION.SDK_INT >= 34) {
             permissionLauncher.launch(new String[]{Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO,
                     Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED});
+        } else if (Build.VERSION.SDK_INT >= 33) {
+            permissionLauncher.launch(new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO});
         } else permissionLauncher.launch(new String[]{primary});
     }
 
@@ -263,7 +287,8 @@ public class MainActivity extends AppCompatActivity {
         boolean accessible = hasAccess();
         boolean show = accessible && !model.loading && !model.loadFailed;
         boolean sorting = selectedPage == R.id.nav_sort;
-        deck.setPhotos(show && sorting ? model.session.top() : null, show && sorting ? model.session.next() : null);
+        deck.setMedia(show && sorting ? model.mediaFor(model.session.top()) : null,
+                show && sorting ? model.mediaFor(model.session.next()) : null);
         deck.setEnabled(show && sorting && !model.requestingTrash);
         progress.setVisibility(model.loading ? View.VISIBLE : View.GONE);
         findViewById(R.id.emptyPanel).setVisibility(!model.loading && (!show || model.session.top() == null) ? View.VISIBLE : View.GONE);
@@ -271,18 +296,25 @@ public class MainActivity extends AppCompatActivity {
         ((TextView) findViewById(R.id.emptyTitle)).setText(!accessible ? R.string.start_title : model.loadFailed ? R.string.error_title : R.string.done_title);
         status.setText(accessible ? getString(!fullAccess() && partialAccess() ? R.string.sort_status_partial : R.string.sort_status,
                 model.session.remainingCount()) : getString(R.string.sort_status_hint));
+        GalleryMedia current = show && sorting ? model.mediaFor(model.session.top()) : null;
+        TextView currentDate = findViewById(R.id.currentMediaDate);
+        currentDate.setText(SwipeDeckView.dateLabel(this, current));
+        currentDate.setVisibility(current == null ? View.GONE : View.VISIBLE);
+        TextView currentSize = findViewById(R.id.currentMediaSize);
+        String sizeLabel = current == null ? null : current.formattedSize();
+        currentSize.setText(sizeLabel == null ? getString(R.string.size_unknown) : sizeLabel);
+        findViewById(R.id.currentMediaSizePanel).setVisibility(current == null ? View.GONE : View.VISIBLE);
+        findViewById(R.id.expandAccessButton).setVisibility(accessible && !fullAccess() ? View.VISIBLE : View.GONE);
         access.setText(model.loadFailed && accessible ? R.string.retry : accessible ? R.string.manage_access : R.string.grant_access);
         ((TextView) findViewById(R.id.accessStatus)).setText(fullAccess() ? R.string.access_full : partialAccess() ? R.string.access_partial : R.string.access_none);
         start.setText(!accessible ? R.string.grant_access : model.loadFailed ? R.string.retry : model.session.trashCount() > 0 ? R.string.review_queue : R.string.refresh_gallery);
         findViewById(R.id.swipeActions).setVisibility(show && (model.session.top() != null || model.session.canUndo()) ? View.VISIBLE : View.GONE);
         int count = model.session.trashCount();
-        review.setText(getString(R.string.review_count, count));
-        review.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
         ((TextView) findViewById(R.id.queueSummary)).setText(count > 0 ? getString(R.string.queue_summary, count) : getString(R.string.queue_empty_summary));
         findViewById(R.id.queueEmpty).setVisibility(count == 0 ? View.VISIBLE : View.GONE);
         findViewById(R.id.queueFooter).setVisibility(count > 0 ? View.VISIBLE : View.GONE);
         queueAdapter.submitList(selectedPage == R.id.nav_queue
-                ? model.session.trashBatch(Integer.MAX_VALUE) : new ArrayList<>());
+                ? model.queuedMedia() : new ArrayList<>());
         if (count > 0) navigation.getOrCreateBadge(R.id.nav_queue).setNumber(count);
         else navigation.removeBadge(R.id.nav_queue);
         clean.setText(getString(R.string.clean_count, model.session.trashCount()));
@@ -301,6 +333,7 @@ public class MainActivity extends AppCompatActivity {
         undo.setEnabled(ready && model.session.canUndo());
         clean.setEnabled(ready && model.session.trashCount() > 0);
         access.setEnabled(!model.loading && !model.requestingTrash && !deck.isBusy());
+        findViewById(R.id.expandAccessButton).setEnabled(!model.loading && !model.requestingTrash && !deck.isBusy());
         start.setEnabled(!model.loading && !model.requestingTrash);
         refreshButton.setEnabled(ready);
         findViewById(R.id.reviewHistoryButton).setEnabled(ready);
